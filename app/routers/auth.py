@@ -8,6 +8,10 @@ from app.services.user_service import (
     authenticate_user,
     generate_user_token
 )
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from app.utils.security import decode_access_token
+
+security = HTTPBearer()
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -56,3 +60,36 @@ def login(request: LoginRequest, db: Session = Depends(get_db)):
             headers={"WWW-Authenticate": "Bearer"}
         )
     return generate_user_token(user)
+
+
+@router.get("/me")
+def get_current_user(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: Session = Depends(get_db)
+):
+    token = credentials.credentials
+    payload = decode_access_token(token)
+    if payload is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired token",
+            headers={"WWW-Authenticate": "Bearer"}
+        )
+    email = payload.get("sub")
+    if email is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token payload"
+        )
+    user = get_user_by_email(db, email)
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+    return {
+        "username": user.username,
+        "email": user.email,
+        "is_active": user.is_active,
+        "created_at": user.created_at
+    }
