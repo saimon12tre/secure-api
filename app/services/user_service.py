@@ -11,7 +11,7 @@ def get_user_by_username(db: Session, username: str) -> User | None:
 
 def create_user(db: Session, username: str, email: str, password: str) -> User:
     hashed = hash_password(password)
-    new:user = User(
+    new_user = User(
         username=username,
         email=email,
         hashed_password=hashed
@@ -26,7 +26,7 @@ def authenticate_user(db: Session, email: str, password: str) -> User | None:
     user = get_user_by_email(db, email)
     if not user:
         return None
-    if not verify_password(password, user.hash_password):
+    if not verify_password(password, user.hashed_password):
         return None
     return user
 
