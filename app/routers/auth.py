@@ -10,6 +10,11 @@ from app.services.user_service import (
 )
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from app.utils.security import decode_access_token
+from slowapi import Limiter
+from slowapi.util import get_remote_address
+from fastapi import APIRouter, Depends, HTTPException, status, Request
+
+limiter = Limiter(key_func=get_remote_address)
 
 security = HTTPBearer()
 
@@ -51,8 +56,9 @@ def register(request: RegisterRequest, db: Session = Depends(get_db)):
 
 
 @router.post("/login")
-def login(request: LoginRequest, db: Session = Depends(get_db)):
-    user = authenticate_user(db, request.email, request.password)
+@limiter.limit("5/minute")
+def login(request: Request, login_data: LoginRequest, db: Session = Depends(get_db)):
+    user = authenticate_user(db, login_data.email, login_data.password)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
