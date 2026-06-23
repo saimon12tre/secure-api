@@ -9,7 +9,7 @@ from app.services.user_service import (
     generate_user_token
 )
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from app.utils.security import decode_access_token
+from app.utils.security import decode_access_token, blacklist_token, is_token_blacklisted, create_access_token, create_refresh_token
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 from fastapi import APIRouter, Depends, HTTPException, status, Request
@@ -29,6 +29,9 @@ class RegisterRequest(BaseModel):
 class LoginRequest(BaseModel):
     email: EmailStr
     password: str
+
+class RefreshRequest(BaseModel):
+    refresh_token: str
 
 
 def get_db():
@@ -74,6 +77,12 @@ def get_current_user(
     db: Session = Depends(get_db)
 ):
     token = credentials.credentials
+    if is_token_blacklisted(token):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token has been revoked",
+            headers={"WWW-Authenticate": "Bearer"}
+        )
     payload = decode_access_token(token)
     if payload is None:
         raise HTTPException(
@@ -98,4 +107,65 @@ def get_current_user(
         "email": user.email,
         "is_active": user.is_active,
         "created_at": user.created_at
+    }
+
+@router.post("/refresh")
+def refresh_access_token(request: RefreshRequest):
+    payload = decode_access_token(request.refresh_token)
+    if payload is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired refresh token"
+        )
+    if payload.get("type") != "refresh":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token type"
+        )
+    if is_token_blacklisted(request.refresh_token):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token has been revoked"
+        )
+    email = payload.get("sub")
+    new_access_token = create_access_token({"sub": email})
+    return {"access_token": new_access_token, "token_type": "bearer"}
+
+
+@router.post("/logout")
+def logout(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    token = credentials.credentials
+    blacklist_token(token)
+    return {"message": "Successfully logged out"}
+
+
+@router.get("/suspicious-access")
+def check_suspicious_access(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: Session = Depends(get_db)
+):
+    token = credentials.credentials
+    if is_token_blacklisted(token):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token has been revoked"
+        )
+    payload = decode_access_token(token)
+    if payload is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired token"
+        )
+    email = payload.get("sub")
+    user = get_user_by_email(db, email)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+    return {
+        "email": user.email,
+        "last_login": user.created_at,
+        "is_active": user.is_active,
+        "token_valid": True
     }
