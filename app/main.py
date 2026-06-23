@@ -6,6 +6,9 @@ from slowapi.errors import RateLimitExceeded
 from app.routers import auth
 from app.database import engine
 from app.models.user import Base
+from fastapi.middleware.cors import CORSMiddleware
+from app.models.task import Task
+from app.routers import tasks
 
 Base.metadata.create_all(bind=engine)
 
@@ -18,9 +21,17 @@ app = FastAPI(
 )
 
 app.state.limiter = limiter
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000", "http://localhost:5173"],
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE"],
+    allow_headers=["Authorization", "Content-Type"],
+)
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 app.include_router(auth.router)
+app.include_router(tasks.router)
 
 
 @app.get("/")
