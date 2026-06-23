@@ -12,14 +12,10 @@ A REST API built with Python and FastAPI, focused on security best practices.
 - **bcrypt** — password hashing via passlib
 - **slowapi** — rate limiting
 
-## Security Features
-
-- Password hashing with bcrypt (never stored in plain text)
-- JWT authentication with expiration
-- Rate limiting on login endpoint (5 requests/minute per IP)
-- HTTP 401 on invalid or expired tokens
-- Email validation on registration
-- No sensitive data exposed in API responses
+- Refresh token with 7-day expiration
+- JWT blacklist on logout (token revocation)
+- CORS configured for frontend origins
+- Token type validation (access vs refresh)
 
 ## Project Structure
 
@@ -61,8 +57,16 @@ secure-api/
 | GET | `/` | No | Health check |
 | GET | `/health` | No | Server status |
 | POST | `/auth/register` | No | Register new user |
-| POST | `/auth/login` | No | Login and get JWT token |
+| POST | `/auth/login` | No | Login and get JWT tokens |
 | GET | `/auth/me` | Yes | Get current user info |
+| POST | `/auth/refresh` | No | Get new access token |
+| POST | `/auth/logout` | Yes | Invalidate current token |
+| GET | `/auth/suspicious-access` | Yes | Check token and user status |
+| GET | `/tasks/` | Yes | List all user tasks |
+| POST | `/tasks/` | Yes | Create a new task |
+| GET | `/tasks/{task_id}` | Yes | Get a specific task |
+| PUT | `/tasks/{task_id}` | Yes | Update a task |
+| DELETE | `/tasks/{task_id}` | Yes | Delete a task |
 
 ## Setup
 
