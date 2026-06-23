@@ -90,6 +90,22 @@ cp .env.example .env
 uvicorn app.main:app --reload
 ```
 
+## Database Migrations
+
+This project uses Alembic for database schema versioning.
+
+```bash
+# Apply all migrations
+alembic upgrade head
+
+# Rollback last migration
+alembic downgrade -1
+
+# Generate a new migration after model changes
+alembic revision --autogenerate -m "Description of change"
+```
+
+
 ## Environment Variables
 
 DATABASE_URL=postgresql://postgres:password@localhost:5432/secureapi
