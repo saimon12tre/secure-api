@@ -10,7 +10,20 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.models.task import Task
 from app.routers import tasks
 
-Base.metadata.create_all(bind=engine)
+import time
+
+def create_tables_with_retry(retries: int = 5, delay: int = 3) -> None:
+    for attempt in range(retries):
+        try:
+            Base.metadata.create_all(bind=engine)
+            return
+        except Exception:
+            if attempt < retries - 1:
+                time.sleep(delay)
+            else:
+                raise
+
+create_tables_with_retry()
 
 limiter = Limiter(key_func=get_remote_address)
 
